@@ -55,6 +55,14 @@ class ReiriClimate(CoordinatorEntity, ClimateEntity):
         return self.coordinator.data.get(self.point_id, {})
 
     @property
+    def supported_features(self):
+        features = self._attr_supported_features
+        horizontal_cap = self.point.get("flap2_cap", {})
+        if horizontal_cap.get("D", 0) or horizontal_cap.get("S"):
+            features |= ClimateEntityFeature.SWING_HORIZONTAL_MODE
+        return features
+
+    @property
     def available(self):
         return self.coordinator.client.connected and self.point.get("comm_stat") is True
 
@@ -111,6 +119,8 @@ class ReiriClimate(CoordinatorEntity, ClimateEntity):
         # S=2 usa L (Low) e H (High), e não valores numéricos.
         if steps == 2:
             result.extend(("L", "H"))
+        elif steps == 5:
+            result.extend(str(value) for value in range(1, 6))
         elif isinstance(steps, int):
             # Mantém o comportamento anterior para capacidades ainda não
             # validadas presencialmente, como S=5.
@@ -132,8 +142,26 @@ class ReiriClimate(CoordinatorEntity, ClimateEntity):
         return values or [self.swing_mode]
 
     @property
+    def swing_horizontal_mode(self):
+        value = self.point.get("flap2")
+        return str(value) if value is not None else None
+
+    @property
+    def swing_horizontal_modes(self):
+        cap = self.point.get("flap2_cap", {})
+        directions = cap.get("D", 0)
+        values = (
+            [str(value) for value in range(directions)]
+            if isinstance(directions, int)
+            else []
+        )
+        if cap.get("S"):
+            values.append("S")
+        return values or None
+
+    @property
     def extra_state_attributes(self):
-        return {key: self.point.get(key) for key in ("stat", "mode", "actual_mode", "comm_stat", "ch_master", "mode_cap", "fanstep_cap", "flap_cap")}
+        return {key: self.point.get(key) for key in ("stat", "mode", "actual_mode", "comm_stat", "ch_master", "mode_cap", "fanstep_cap", "flap_cap", "flap2", "flap2_cap")}
 
     async def async_set_hvac_mode(self, hvac_mode):
         if hvac_mode == HVACMode.OFF:
@@ -156,10 +184,21 @@ class ReiriClimate(CoordinatorEntity, ClimateEntity):
             await self.coordinator.client.async_operate(self.point_id, "sp", kwargs[ATTR_TEMPERATURE])
 
     async def async_set_fan_mode(self, fan_mode):
+        value = fan_mode
+        if self.point.get("fanstep_cap", {}).get("S") == 5 and str(fan_mode).isdigit():
+            value = int(fan_mode)
         await self.coordinator.client.async_operate(
-            self.point_id, "fanstep", str(fan_mode)
+            self.point_id, "fanstep", value
         )
 
     async def async_set_swing_mode(self, swing_mode):
         value = int(swing_mode) if str(swing_mode).isdigit() else swing_mode
         await self.coordinator.client.async_operate(self.point_id, "flap", value)
+
+    async def async_set_swing_horizontal_mode(self, swing_horizontal_mode):
+        value = (
+            int(swing_horizontal_mode)
+            if str(swing_horizontal_mode).isdigit()
+            else swing_horizontal_mode
+        )
+        await self.coordinator.client.async_operate(self.point_id, "flap2", value)

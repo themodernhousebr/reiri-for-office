@@ -191,7 +191,7 @@ class ReiriClient:
     async def _async_operate_once(
         self, point_id: str, attribute: str, value: Any
     ) -> None:
-        if attribute == "flap":
+        if attribute in ("flap", "flap2"):
             await asyncio.sleep(FLAP_DEBOUNCE_SECONDS)
         loop = asyncio.get_running_loop()
         cos_future = loop.create_future()
@@ -205,6 +205,14 @@ class ReiriClient:
             )
             if not isinstance(op_body, dict) or op_body.get("result") != "OK":
                 raise ReiriError(f"Operação recusada: {op_body!r}")
+            if attribute in ("flap", "flap2"):
+                self.points.setdefault(point_id, {})[attribute] = value
+                if self.on_update:
+                    self.on_update(self.points)
+                asyncio.create_task(
+                    self._async_verify_flap(point_id, attribute, value)
+                )
+                return
             try:
                 await asyncio.wait_for(
                     asyncio.shield(cos_future), timeout=COS_CONFIRM_TIMEOUT_SECONDS
@@ -221,6 +229,25 @@ class ReiriClient:
         finally:
             if confirmation in self._confirmations:
                 self._confirmations.remove(confirmation)
+
+    async def _async_verify_flap(
+        self, point_id: str, attribute: str, expected: Any
+    ) -> None:
+        """Reconcile an optimistic flap update without blocking the UI."""
+        await asyncio.sleep(COS_CONFIRM_TIMEOUT_SECONDS)
+        try:
+            await self.async_refresh_points(timeout=MPLIST_FALLBACK_TIMEOUT_SECONDS)
+        except (ReiriError, TimeoutError) as err:
+            _LOGGER.debug("Flap background refresh failed: %s", err)
+            return
+        actual = self.points.get(point_id, {}).get(attribute)
+        if not self._values_equal(actual, expected):
+            _LOGGER.warning(
+                "Flap command for %s was not confirmed: expected %r, got %r",
+                point_id,
+                expected,
+                actual,
+            )
 
     def _resolve_cos(self, body: dict) -> None:
         for item in tuple(self._confirmations):
