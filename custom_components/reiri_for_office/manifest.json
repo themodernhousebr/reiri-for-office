@@ -4,6 +4,7 @@
   "codeowners": [],
   "config_flow": true,
   "documentation": "https://github.com/themodernhousebr/reiri-for-office",
+  "issue_tracker": "https://github.com/themodernhousebr/reiri-for-office/issues",
   "integration_type": "hub",
   "iot_class": "local_push",
   "requirements": [],
