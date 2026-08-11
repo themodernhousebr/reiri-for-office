@@ -1,4 +1,4 @@
-# Reiri for Office — Home Assistant
+# Daikin - Reiri for Office — Home Assistant
 
 Integração customizada (v0.1.0) para controladores Daikin/Reiri DCPF01 na rede local.
 
