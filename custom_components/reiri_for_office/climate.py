@@ -84,7 +84,7 @@ class ReiriClimate(CoordinatorEntity, ClimateEntity):
     def hvac_mode(self):
         if self.point.get("stat") != "on":
             return HVACMode.OFF
-        return MODE_TO_HA.get(self.point.get("actual_mode") or self.point.get("mode"), HVACMode.FAN_ONLY)
+        return MODE_TO_HA.get(self.point.get("mode") or self.point.get("actual_mode"), HVACMode.FAN_ONLY)
 
     @property
     def hvac_modes(self):
@@ -125,7 +125,7 @@ class ReiriClimate(CoordinatorEntity, ClimateEntity):
 
     @property
     def extra_state_attributes(self):
-        return {key: self.point.get(key) for key in ("actual_mode", "comm_stat", "ch_master", "mode_cap", "fanstep_cap", "flap_cap")}
+        return {key: self.point.get(key) for key in ("stat", "mode", "actual_mode", "comm_stat", "ch_master", "mode_cap", "fanstep_cap", "flap_cap")}
 
     async def async_set_hvac_mode(self, hvac_mode):
         if hvac_mode == HVACMode.OFF:
