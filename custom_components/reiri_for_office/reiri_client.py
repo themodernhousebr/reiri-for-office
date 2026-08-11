@@ -166,6 +166,31 @@ class ReiriClient:
         }
 
     async def async_operate(self, point_id: str, attribute: str, value: Any) -> None:
+        attempts = 3 if attribute == "fanstep" else 1
+        last_error: ReiriError | None = None
+
+        for attempt in range(1, attempts + 1):
+            try:
+                await self._async_operate_once(point_id, attribute, value)
+                return
+            except ReiriError as err:
+                last_error = err
+                if attempt == attempts:
+                    raise
+                _LOGGER.debug(
+                    "Fanstep não confirmado para %s; nova tentativa %s/%s",
+                    point_id,
+                    attempt + 1,
+                    attempts,
+                )
+                await asyncio.sleep(0.5)
+
+        if last_error is not None:
+            raise last_error
+
+    async def _async_operate_once(
+        self, point_id: str, attribute: str, value: Any
+    ) -> None:
         if attribute == "flap":
             await asyncio.sleep(FLAP_DEBOUNCE_SECONDS)
         loop = asyncio.get_running_loop()

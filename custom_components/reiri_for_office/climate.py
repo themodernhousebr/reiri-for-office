@@ -106,8 +106,16 @@ class ReiriClimate(CoordinatorEntity, ClimateEntity):
         cap = self.point.get("fanstep_cap", {})
         result = ["A"] if cap.get("A") else []
         steps = cap.get("S", 0)
-        if isinstance(steps, int):
+
+        # Confirmado presencialmente no DCPF01:
+        # S=2 usa L (Low) e H (High), e não valores numéricos.
+        if steps == 2:
+            result.extend(("L", "H"))
+        elif isinstance(steps, int):
+            # Mantém o comportamento anterior para capacidades ainda não
+            # validadas presencialmente, como S=5.
             result.extend(str(value) for value in range(1, steps + 1))
+
         return result or [self.fan_mode]
 
     @property
