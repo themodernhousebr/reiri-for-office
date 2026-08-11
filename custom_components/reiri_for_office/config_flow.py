@@ -10,7 +10,6 @@ from homeassistant.core import callback
 
 from .const import (
     CONF_SLAVE_POLICY,
-    DEFAULT_HOST,
     DEFAULT_PORT,
     DEFAULT_SLAVE_POLICY,
     DOMAIN,
@@ -47,7 +46,7 @@ class ReiriConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         schema = vol.Schema(
             {
-                vol.Required(CONF_HOST, default=DEFAULT_HOST): str,
+                vol.Required(CONF_HOST): str,
                 vol.Required(CONF_PORT, default=DEFAULT_PORT): vol.Coerce(int),
                 vol.Required(CONF_USERNAME): str,
                 vol.Required(CONF_PASSWORD): str,
