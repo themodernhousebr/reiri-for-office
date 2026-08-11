@@ -15,7 +15,7 @@ Também é possível copiar `custom_components/reiri_for_office` para `/config/c
 
 ## Configuração
 
-Informe host (padrão `192.168.68.50`), porta (padrão `52001`), usuário e senha locais do Reiri. Uma única entrada representa o DCPF01; cada ponto `type="Ac"` e `usage="ac"` vira um dispositivo e uma entidade `climate`.
+Informe host (IP local), porta (padrão `52001`), usuário e senha locais do Reiri. Uma única entrada representa o DCPF01; cada ponto `type="Ac"` e `usage="ac"` vira um dispositivo e uma entidade `climate`.
 
 Em **Configurar**, a política das unidades slave pode ser:
 
