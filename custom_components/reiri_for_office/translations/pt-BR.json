@@ -1,0 +1,23 @@
+{
+  "title": "Reiri for Office",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Conectar ao Reiri DCPF01",
+        "description": "Informe as credenciais locais do controlador.",
+        "data": {"host": "Host", "port": "Porta", "username": "Usuário", "password": "Senha"}
+      }
+    },
+    "error": {"cannot_connect": "Não foi possível conectar", "invalid_auth": "Credenciais inválidas", "unknown": "Erro inesperado"},
+    "abort": {"already_configured": "Este controlador já está configurado"}
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opções do Reiri for Office",
+        "data": {"slave_policy": "Política de modos das unidades slave"},
+        "data_description": {"slave_policy": "conservative limita os modos conforme a master; all_reported usa mode_cap."}
+      }
+    }
+  }
+}
