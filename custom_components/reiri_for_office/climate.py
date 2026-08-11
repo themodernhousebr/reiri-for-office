@@ -148,8 +148,9 @@ class ReiriClimate(CoordinatorEntity, ClimateEntity):
             await self.coordinator.client.async_operate(self.point_id, "sp", kwargs[ATTR_TEMPERATURE])
 
     async def async_set_fan_mode(self, fan_mode):
-        value = int(fan_mode) if str(fan_mode).isdigit() else fan_mode
-        await self.coordinator.client.async_operate(self.point_id, "fanstep", value)
+        await self.coordinator.client.async_operate(
+            self.point_id, "fanstep", str(fan_mode)
+        )
 
     async def async_set_swing_mode(self, swing_mode):
         value = int(swing_mode) if str(swing_mode).isdigit() else swing_mode
