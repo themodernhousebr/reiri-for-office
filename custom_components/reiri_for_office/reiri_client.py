@@ -15,7 +15,12 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.padding import PKCS7
 
-from .const import FLAP_DEBOUNCE_SECONDS
+from .const import (
+    COS_CONFIRM_TIMEOUT_SECONDS,
+    FLAP_DEBOUNCE_SECONDS,
+    MPLIST_FALLBACK_TIMEOUT_SECONDS,
+    OP_TIMEOUT_SECONDS,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -144,8 +149,8 @@ class ReiriClient:
                     if not future.done():
                         future.set_result(body)
 
-    async def async_refresh_points(self) -> dict:
-        body = await self._request("mplist", encrypted_marker=True, timeout=15)
+    async def async_refresh_points(self, timeout: float = 15) -> dict:
+        body = await self._request("mplist", encrypted_marker=True, timeout=timeout)
         self._set_points(body)
         if self.on_update:
             self.on_update(self.points)
@@ -168,22 +173,25 @@ class ReiriClient:
         confirmation = {"point": point_id, "attribute": attribute, "value": value, "future": cos_future}
         self._confirmations.append(confirmation)
         try:
-            op_task = asyncio.create_task(
-                self._request("op", {point_id: {attribute: value}}, timeout=15)
+            op_body = await self._request(
+                "op",
+                {point_id: {attribute: value}},
+                timeout=OP_TIMEOUT_SECONDS,
             )
-            op_body = await op_task
             if not isinstance(op_body, dict) or op_body.get("result") != "OK":
                 raise ReiriError(f"Operação recusada: {op_body!r}")
             try:
-                await asyncio.wait_for(asyncio.shield(cos_future), timeout=15)
+                await asyncio.wait_for(
+                    asyncio.shield(cos_future), timeout=COS_CONFIRM_TIMEOUT_SECONDS
+                )
                 return
             except TimeoutError:
-                await self.async_refresh_points()
+                await self.async_refresh_points(timeout=MPLIST_FALLBACK_TIMEOUT_SECONDS)
                 actual = self.points.get(point_id, {}).get(attribute)
                 if attribute == "sp":
                     point = self.points.get(point_id, {})
                     actual = point.get("hsp") if point.get("mode") == "H" else point.get("csp")
-                if actual != value:
+                if not self._values_equal(actual, value):
                     raise ReiriError("Operação aceita, mas não confirmada por COS ou mplist")
         finally:
             if confirmation in self._confirmations:
@@ -193,11 +201,27 @@ class ReiriClient:
         for item in tuple(self._confirmations):
             changes = body.get(item["point"], {})
             attr = item["attribute"]
-            matched = changes.get(attr) == item["value"]
+            matched = self._values_equal(changes.get(attr), item["value"])
             if attr == "sp":
-                matched = changes.get("csp") == item["value"] or changes.get("hsp") == item["value"]
+                matched = self._values_equal(
+                    changes.get("csp"), item["value"]
+                ) or self._values_equal(changes.get("hsp"), item["value"])
             if matched and not item["future"].done():
                 item["future"].set_result(True)
+
+    @staticmethod
+    def _values_equal(actual: Any, expected: Any) -> bool:
+        """Compare protocol values while tolerating numeric strings."""
+        if actual == expected:
+            return True
+        if actual is None or expected is None:
+            return False
+        if isinstance(actual, bool) or isinstance(expected, bool):
+            return False
+        try:
+            return float(actual) == float(expected)
+        except (TypeError, ValueError):
+            return str(actual) == str(expected)
 
     async def _request(self, command, data=None, encrypted_marker=False, timeout=15):
         if not self.connected or not self._ws:
