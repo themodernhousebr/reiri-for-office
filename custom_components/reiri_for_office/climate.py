@@ -86,7 +86,7 @@ class ReiriClimate(CoordinatorEntity, ClimateEntity):
 
     @property
     def target_temperature_step(self):
-        return self.point.get("sp_step", 0.5)
+        return 0.5
 
     @property
     def hvac_mode(self):
