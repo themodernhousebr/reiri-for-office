@@ -1,0 +1,41 @@
+name: Keep scheduled workflows active
+
+on:
+  schedule:
+    - cron: "17 8 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  keepalive:
+    if: github.repository == 'themodernhousebr/reiri-for-office'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      # The enable endpoint also refreshes activity on active workflows.
+      # This behavior is not a documented guarantee against inactivity expiry.
+      - name: Refresh scheduled workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for workflow in hacs.yml hassfest.yml keepalive.yml; do
+            state=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow}" --jq '.state')
+            case "$state" in
+              active|disabled_inactivity)
+                gh api --method PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow}/enable"
+                echo "Refreshed ${workflow}"
+                ;;
+              disabled_manually)
+                echo "Skipping manually disabled workflow: ${workflow}"
+                ;;
+              *)
+                echo "::error::Unexpected state for ${workflow}: ${state}"
+                exit 1
+                ;;
+            esac
+          done
